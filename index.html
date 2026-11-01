@@ -1158,7 +1158,9 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (type === 'rice') return pickOne(['밥만 먹으니까 좀….심심해', '공깃밥도 맛있긴해', '반찬도 있음 좋겠다….']);
     if (type === 'pint') return '파인트 한 통은 기본이지 ㅋㅋㅋㅋㅋㅋㅋ';
     if (type === 'bunmoja') return '쫀득쫀득 분모자아아';
-    return pickOne(['냠냠 마싯다아', '와 머야 존맛….', '오물오물', '더 줘어어'].concat(TALK.eat));
+    const l = pickOne(['냠냠 마싯다아', '와 머야 존맛….', '오물오물', '더 줘어어'].concat(TALK.eat));
+    if (l === TALK.eatSeq[0]) TALK.eatSeq.slice(1).forEach((x, i) => setTimeout(() => { if (mode === 'idle') say(x, i ? 1.6 : 2.2); }, 2400 * (i + 1)));
+    return l;
   }
   let flying = null, fridgeGlow = 0;
   function feedFrom(type) {
@@ -2209,7 +2211,8 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     luck: ['오늘은 운이 조켸써 🍀', '🍀🍀🍀🍀🍀🍀🍀🍀🍀🍀🍀', '행운 가득 받아라~~ 나도 좀 가질래'],
     hungry: ['배에서 꾸르르르르르르륵 소리 나…'],
     fridge: ['냉장고야 열려라….'],
-    eat: ['냠✨냠✨', '이거 내꺼쟈? 헤헤', '이거 뽀뇨 주려고 산거야. 절대 내가 먹고싶어서 아님', '근데 내가 다 먹었네', '헤', '냉장고 털이범(?)뭉탱'],
+    eat: ['냠✨냠✨', '이거 내꺼쟈? 헤헤', '이거 뽀뇨 주려고 산거야. 절대 내가 먹고싶어서 아님', '냉장고 털이범(?)뭉탱'],
+    eatSeq: ['이거 뽀뇨 주려고 산거야. 절대 내가 먹고싶어서 아님', '근데 내가 다 먹었네', '헤'], // 첫 줄 나오면 나머지가 이어서 나와요
     full: ['배불러따, 진짜로', '배부르다. 행복하다'],
     sleepy: ['눈이 자꾸 감겨…. 감긴댜….', '뭉졸려 💤'],
     late: ['졸려??'],
