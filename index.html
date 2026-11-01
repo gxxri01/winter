@@ -3216,7 +3216,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
   setMode(S.sleeping ? 'sleep' : 'idle'); renderDots();
   // ---- 선착순 정원 (테스트용, 깃허브 사이트에서만) ----
   const GATE_ON = /\.github\.io$/.test(location.hostname);
-  const GATE = { max: 15, project: 'winter-e6c5a', key: 'AIzaSyAssJ7V_0NI1Cy9D7tEarIr4GkFXpdNv14', owner: 'e31084deeb6b084f650a92fcf3b7157515e3cf82fbdec81e84c0912f8efea0fa' };
+  const GATE = { max: 20, project: 'winter-e6c5a', key: 'AIzaSyAssJ7V_0NI1Cy9D7tEarIr4GkFXpdNv14', owner: 'e31084deeb6b084f650a92fcf3b7157515e3cf82fbdec81e84c0912f8efea0fa' };
   const GATE_TEXT = { wait: ['잠깐만요….', ''], full: ['다음 기회에 ㅋㅋ', ''], error: ['연결이 잠깐 안 돼요', '새로고침해 주세요'] };
   function gateBox(kind, closable) {
     let g = document.getElementById('gate');
