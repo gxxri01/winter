@@ -1,0 +1,29 @@
+# 폰(MacroDroid)이 신호를 보내면 news.json을 자동으로 바꿔주는 작업이에요.
+name: news
+on:
+  repository_dispatch:
+    types: [news]
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: news.json 쓰기
+        env:
+          STATUS: ${{ github.event.client_payload.status }}
+          LINE: ${{ github.event.client_payload.line }}
+          URL: ${{ github.event.client_payload.url }}
+        run: |
+          SINCE=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')
+          jq -n --arg s "$STATUS" --arg l "$LINE" --arg u "$URL" --arg t "$SINCE" \
+            '{status:$s, line:$l, url:$u, since:$t, until:""}' > news.json
+          cat news.json
+      - name: 저장하기
+        run: |
+          git config user.name "mungtaeng-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add news.json
+          git commit -m "news: ${{ github.event.client_payload.status }}" || exit 0
+          git push

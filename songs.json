@@ -1,0 +1,10 @@
+{
+  "songs": [
+    { "title": "여름의 속도", "lines": ["(여름의 속도 가사)"] },
+    { "title": "향해", "lines": ["(향해 가사)"] },
+    { "title": "With You", "lines": ["(With You 가사)"] },
+    { "title": "Blue", "lines": ["(Blue 가사)"] },
+    { "title": "처음 본 순간", "lines": ["(처음 본 순간 가사)"] },
+    { "title": "Saddle Up", "lines": ["(Saddle Up 가사)"] }
+  ]
+}
