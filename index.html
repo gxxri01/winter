@@ -1811,7 +1811,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (mode === 'walk' && walk) { downY = p.y; walkJump(); return; }
     if (mode === 'wash') return scrub(p);
     if (mode === 'sleep') { if (onPet(p)) say('쿨…쿨….', 1.2); return; }
-    if (mode === 'idle') { if (onFridge(p)) return openFridge(); if (onPupRoom(p)) return tapPupRoom(); if (onPet(p)) petIt(p); }
+    if (mode === 'idle') { if (onFridge(p)) return openFridge(); if (onPupRoom(p)) return tapPupRoom(); if (inBox(cakeBox, p)) return tapCake(); if (inBox(giftBox, p)) return tapGift(); if (onPet(p)) petIt(p); }
   });
   cv.addEventListener('pointermove', e => {
     const p = pos(e);
@@ -2370,6 +2370,108 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (pg.months) return pg.months.includes(new Date().getMonth() + 1);
     return true;
   }
+  // ---- 생일·기념일 ----
+  //  그날 하루: 방에 가랜드·풍선, 뭉탱이 고깔모자, 식탁에 케이크(누르면 촛불 끄기), 처음 들어오면 배너, 대사 추가
+  //  date: 'MM-DD' · 'born' = 뭉탱이 생일(게임 처음 시작한 날) · member: 그 멤버가 꼭 밥 먹으러 와요 · pup: 뽀뇨가 꼭 놀러와요 · off: true 아직 안 씀
+  //  {name} = 뭉탱이 이름, {p} = 뽀뇨 이름. 선물(보상)은 아직 안 정해서 상자만 있어요 (GIFT_LINE)
+  const EVENTS = [
+    { id: 'winter', date: '01-01', emoji: '🎂', banner: '오늘은 윈터 생일이에요!', flag: '생일축하해', lines: ['오늘 윈터 생일이래!! 🎂', '윈터 생일 축하해애~~', '새해 첫날이 생일이라니 멋지다아', '케이크 먹을 사람~~ 🙋'] },
+    { id: 'karina', date: '04-11', member: 'karina', emoji: '🎂', banner: '오늘은 카리나 생일이에요!', flag: '생일축하해', lines: ['오늘 지민언니 생일이야!! 🎂', '지민언니 언제 오지…?', '케이크 준비 완료오 ✌️'] },
+    { id: 'ningning', date: '10-23', member: 'ningning', emoji: '🎂', banner: '오늘은 닝닝 생일이에요!', flag: '생일축하해', lines: ['오늘 닝이 생일이야!! 🎂', '닝이 언제 오지…?', '케이크 준비 완료오 ✌️'] },
+    { id: 'giselle', date: '10-30', member: 'giselle', emoji: '🎂', banner: '오늘은 지젤 생일이에요!', flag: '생일축하해', lines: ['오늘 애리언니 생일이야!! 🎂', '애리언니 언제 오지…?', '케이크 준비 완료오 ✌️'] },
+    { id: 'debut', date: '11-17', emoji: '💐', banner: '오늘은 에스파 데뷔 기념일이에요!', flag: '데뷔축하해', lines: ['오늘 데뷔 기념일이다아 💐', '벌써 이렇게 됐네…. 헤헤', '마이들 고마워 🤍', '앞으로도 같이 있자아'] },
+    { id: 'mung', date: 'born', emoji: '🎉', banner: '오늘은 {name} 생일이에요!', flag: '생일축하해', lines: ['오늘 내 생일이야!! 🎉', '헤헤 축하해줘어', '케이크 먹어도 되지…?', '생일이라 기분 최고 ✌️'] }
+    // 뽀뇨 생일: 날짜 정하면 추가 → { id: 'ppo', date: 'MM-DD', pup: true, emoji: '🐶', banner: '오늘은 {p} 생일이에요!', flag: '생일축하해', lines: [...] }
+  ];
+  const BDAY_MEM = ['고마워 뭉탱아 🥹', '케이크 진짜 예쁘다', '오늘 너무 행복해 🎂', '다들 고마워어', '소원 빌었어 ㅎㅎ'];
+  const GIFT_LINE = ['선물은 아직 준비 중이래 헤헤 🎁', '이건 나중에 열어보자아 🎁'];
+  const DAY_FORCE = (() => { try { const m = location.hash.match(/day=([\w-]+)/); return m ? m[1] : null; } catch (e) { return null; } })();
+  let EV = null, evBan = null;
+  function evText(t) { return String(t).replace(/\{name\}/g, S.name || '뭉탱이').replace(/\{p\}/g, S.puppy || '뽀뇨'); }
+  function evLine() { return EV ? evText(pickOne(EV.lines)) : ''; }
+  function todayEvent() {
+    if (DAY_FORCE) return EVENTS.find(e => e.id === DAY_FORCE || e.date === DAY_FORCE) || null;
+    const t = mmdd(new Date());
+    return EVENTS.find(e => !e.off && (e.date === 'born' ? (S.born && mmdd(new Date(S.born)) === t && todayKey() !== dayKey(new Date(S.born))) : e.date === t)) || null;
+  }
+  function confetti(x, y, n) { ['#ff8fab', '#ffc94d', '#9fd8ff', '#c9b8f0', '#8fe0c4'].forEach(c => burst(x + rand(-30, 30), y, c, n || 6)); }
+  function updateEvent(dt) {
+    if (!evBan) return;
+    if (evBan.t === 0 && (mode !== 'idle' || visit || !$('polWrap').hidden || $('msheet').hidden === false)) return;
+    if (evBan.t === 0) { confetti(W * 0.5, H * 0.3, 8); sfx.open(); setTimeout(() => { if (EV) { say(evLine(), 2.6); pet.happyT = 1.5; } }, 900); }
+    evBan.t += dt; if (evBan.t > 3.6) evBan = null;
+  }
+  function drawEvent() {
+    if (!evBan || evBan.t === 0 || !EV) return;
+    const vt = evBan.t, a = Math.max(0, Math.min(1, vt * 3, (3.6 - vt) * 3)), txt = evText(EV.banner);
+    ctx.save(); ctx.globalAlpha = a; ctx.font = '19px ' + FONT;
+    const tw = ctx.measureText(txt).width + 44, bx = (W - tw) / 2, by = H * 0.24, sc = 0.9 + 0.1 * Math.min(1, vt * 4);
+    ctx.translate(W / 2, by + 23); ctx.scale(sc, sc); ctx.translate(-W / 2, -(by + 23));
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ff8fab'; ctx.lineWidth = 3; rr(ctx, bx, by, tw, 46, 23); ctx.fill(); ctx.stroke();
+    ctx.font = '30px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(EV.emoji, W / 2, by - 12);
+    ctx.font = '19px ' + FONT; ctx.fillStyle = '#2f2650'; ctx.fillText(txt, W / 2, by + 24); ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
+  // 벽 위 가랜드 + 풍선
+  function drawEventDeco() {
+    if (!EV) return;
+    const y0 = H * 0.09, x0 = W * 0.03, x1 = W * 0.76, sag = H * 0.04, cols = ['#ff8fab', '#ffc94d', '#9fd8ff', '#c9b8f0', '#8fe0c4'];
+    const yAt = x => y0 + sag * (1 - Math.pow((2 * (x - x0) / (x1 - x0)) - 1, 2));
+    ctx.strokeStyle = '#b9a8e0'; ctx.lineWidth = 2; ctx.beginPath(); for (let x = x0; x <= x1; x += 4) x === x0 ? ctx.moveTo(x, yAt(x)) : ctx.lineTo(x, yAt(x)); ctx.stroke();
+    const chars = [...(EV.flag || '')], n = Math.max(7, chars.length + 2), fw = (x1 - x0) / n, off = Math.floor((n - chars.length) / 2);
+    for (let i = 0; i < n; i++) {
+      const fx = x0 + fw * (i + 0.5), fy = yAt(fx), sw = Math.sin(T * 1.5 + i) * 0.04;
+      ctx.save(); ctx.translate(fx, fy); ctx.rotate(sw);
+      ctx.fillStyle = cols[i % cols.length]; ctx.beginPath(); ctx.moveTo(-fw * 0.4, 0); ctx.lineTo(fw * 0.4, 0); ctx.lineTo(0, fw * 0.85); ctx.closePath(); ctx.fill();
+      const c = chars[i - off]; if (c) { ctx.fillStyle = '#fff'; ctx.font = (fw * 0.42) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.fillText(c, 0, fw * 0.42); }
+      ctx.restore();
+    }
+    [[W * 0.9, H * 0.36, '#ff8fab'], [W * 0.82, H * 0.4, '#9fd8ff'], [W * 0.95, H * 0.42, '#ffc94d']].forEach(([bx, by, c], i) => {
+      const yy = by + Math.sin(T * 1.2 + i * 2) * 4, br = W * 0.04;
+      ctx.strokeStyle = 'rgba(110,98,150,0.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(bx, yy + br * 1.2); ctx.quadraticCurveTo(bx + 6, yy + br * 2.5, bx - 2, yy + br * 3.8); ctx.stroke();
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(bx, yy, br, br * 1.2, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(bx - 3, yy + br * 1.3); ctx.lineTo(bx + 3, yy + br * 1.3); ctx.lineTo(bx, yy + br * 1.1); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(bx - br * 0.35, yy - br * 0.4, br * 0.18, br * 0.3, -0.4, 0, 7); ctx.fill();
+    });
+  }
+  function drawCake(x, y, r) {
+    const w = r * 0.62, h = r * 0.34, lit = !S.cakeOut;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x, y, w * 0.62, h * 0.16, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffd1dc'; rr(ctx, x - w / 2, y - h, w, h, 4); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(ctx, x - w / 2, y - h, w, h * 0.3, 4); ctx.fill();
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x - w / 2 + w * (i + 0.5) / 5, y - h * 0.7, w * 0.07, 0, Math.PI); ctx.fill(); }
+    ctx.fillStyle = '#ff6f91'; [-0.25, 0, 0.25].forEach(k => { ctx.beginPath(); ctx.arc(x + k * w, y - h - 2, w * 0.06, 0, 7); ctx.fill(); });
+    [-0.18, 0.18].forEach((k, i) => {
+      const cx = x + k * w; ctx.fillStyle = i ? '#9fd8ff' : '#c9b8f0'; ctx.fillRect(cx - 1.5, y - h - h * 0.55, 3, h * 0.5);
+      if (lit) { const fl = 1 + Math.sin(T * 14 + i) * 0.15; ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.ellipse(cx, y - h - h * 0.66, 2.6, 4.2 * fl, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#fff3a8'; ctx.beginPath(); ctx.ellipse(cx, y - h - h * 0.62, 1.2, 2.2 * fl, 0, 0, 7); ctx.fill(); }
+    });
+    cakeBox = [x - w * 0.7, y - h * 1.9, x + w * 0.7, y + 6];
+  }
+  function drawGift(x, y, r) {
+    const s = r * 0.32;
+    ctx.fillStyle = '#9b86e8'; rr(ctx, x - s / 2, y - s * 0.8, s, s * 0.8, 3); ctx.fill();
+    ctx.fillStyle = '#b9a8f0'; rr(ctx, x - s * 0.56, y - s * 0.98, s * 1.12, s * 0.24, 3); ctx.fill();
+    ctx.fillStyle = '#ffc94d'; ctx.fillRect(x - s * 0.08, y - s * 0.98, s * 0.16, s * 0.98);
+    ctx.beginPath(); ctx.ellipse(x - s * 0.18, y - s * 1.06, s * 0.18, s * 0.1, 0.5, 0, 7); ctx.ellipse(x + s * 0.18, y - s * 1.06, s * 0.18, s * 0.1, -0.5, 0, 7); ctx.fill();
+    giftBox = [x - s * 0.7, y - s * 1.3, x + s * 0.7, y + 6];
+  }
+  function inBox(b, p) { return !!b && p.x > b[0] && p.x < b[2] && p.y > b[1] && p.y < b[3]; }
+  function tapCake() {
+    if (!S.cakeOut) { S.cakeOut = true; save(); confetti(cakeBox[0] / 2 + cakeBox[2] / 2, cakeBox[1], 6); hearts(pet.x, floorY - R() * 2, 3); S.fun = clamp(S.fun + 5); pet.happyT = 1.5; sfx.pet(); say('후우우~~ 🎉 소원 빌었어!!', 2.4); }
+    else say(pickOne(['케이크 맛있겠다아 🤤', '한 입만…. 헤헤', '촛불 다시 켜줘어 ㅋㅋㅋㅋ']), 2);
+  }
+  function tapGift() { pet.happyT = 1; say(pickOne(GIFT_LINE), 2.2); }
+  // 고깔모자 (머리 소품은 화면 기준 왼쪽 위)
+  function drawPartyHat() {
+    if (!EV || mode !== 'idle' || (act && act.type === 'peek')) return;
+    const r = R(), melt = spriteKey(moodNow()) === 'hungry' && !!imgs.hungry, x = pet.x - r * (melt ? 0.62 : 0.5), y = floorY - r * (melt ? 0.92 : 1.5) - pet.hop, hh = r * 0.7, hw = r * 0.42;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-0.42);
+    ctx.fillStyle = '#ff8fab'; ctx.beginPath(); ctx.moveTo(-hw / 2, 0); ctx.lineTo(hw / 2, 0); ctx.lineTo(0, -hh); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.clip(); ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.07; [0.3, 0.6].forEach(k => { ctx.beginPath(); ctx.moveTo(-hw, -hh * k + hw * 0.3); ctx.lineTo(hw, -hh * k - hw * 0.3); ctx.stroke(); }); ctx.restore();
+    ctx.fillStyle = '#ffc94d'; ctx.beginPath(); ctx.arc(0, -hh, r * 0.09, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(ctx, -hw * 0.56, -r * 0.05, hw * 1.12, r * 0.1, r * 0.05); ctx.fill();
+    ctx.restore();
+  }
   // ---- 하루 시작 ----
   let polT = -1, visitT = -1, visit = null;
   // ---- 오늘의 한마디 (하루 한 번, 들어오고 조금 뒤) ----
@@ -2406,6 +2508,12 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     polT = S.polDay === d ? -1 : rand(60, 180);
     pupInit();
     visitT = S.vday.n < S.vday.target ? rand(150, 420) : -1;
+    EV = todayEvent();
+    if (EV) {
+      if (S.evDay !== d || DAY_FORCE) { S.evDay = d; S.cakeOut = false; evBan = { t: 0 }; }
+      if (EV.member && !S.vday.bd) visitT = rand(25, 45);
+      if (EV.pup && S.pday.n === 0) pupT = rand(20, 40);
+    }
     save();
   }
   function givePolOfDay() {
@@ -2431,7 +2539,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     sfx.knock(); setTimeout(() => sfx.knock(), 700); setTimeout(() => sfx.knock(), 1400);
     return true;
   }
-  function sitDown() { if (!visit) return; visit.phase = 'sit'; visit.t = 0; pet.tx = W * 0.5; say(pickOne(visit.meal ? ['같이 밥 먹자아~~', '잘 먹겠습니다!!'] : ['앉아앉아!!', '간식 먹으면서 놀자']), 2.2); }
+  function sitDown() { if (!visit) return; visit.phase = 'sit'; visit.t = 0; pet.tx = dineMungX(); if (visit.bday) { say(MEMBERS[visit.bday].call + ' 생일 축하해애!! 🎂', 2.4); confetti(W * 0.4, H * 0.45, 6); return; } say(pickOne(visit.meal ? ['같이 밥 먹자아~~', '잘 먹겠습니다!!'] : ['앉아앉아!!', '간식 먹으면서 놀자']), 2.2); }
   function endVisit(quiet) {
     if (!visit) return;
     const ms = visit.members; visit = null;
@@ -2526,13 +2634,18 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     bubbleAt(pr.say.text, pr.x, (pr.topY || pupGY() - R() * 1.5) - 4, Math.min(1, pr.say.t * 3));
   }
   function updateVisit(dt) {
-    updatePupRoom(dt);
+    updatePupRoom(dt); updateEvent(dt);
     // 타이머 (방에서 뭉탱이랑 있을 때만 흘러가요)
     const free = mode === 'idle' && !visit && $('polWrap').hidden && $('msheet').hidden && !newsActive();
     if (free && polT > 0) { polT -= dt; if (polT <= 0) { polT = -1; givePolOfDay(); return; } }
-    if (free && visitT > 0 && polT < 0) {
+    const bdVisit = EV && EV.member && !S.vday.bd;
+    if (free && visitT > 0 && (polT < 0 || bdVisit)) {
       visitT -= dt;
-      if (visitT <= 0) { visitT = -1; if (S.vday.n < S.vday.target) startVisit(Math.random() < 0.3 ? ALL3 : [pickOne(ALL3)], null); }
+      if (visitT <= 0) {
+        visitT = -1;
+        if (bdVisit) { S.vday.bd = true; if (startVisit([EV.member], null) && visit) { visit.meal = true; visit.bday = EV.member; } }
+        else if (S.vday.n < S.vday.target) startVisit(Math.random() < 0.3 ? ALL3 : [pickOne(ALL3)], null);
+      }
     }
     if (!visit) return;
     const vs = visit; vs.t += dt;
@@ -2546,20 +2659,21 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
       } else sitDown();
     }
     else if (vs.phase === 'sit') {
-      pet.tx = W * 0.5;
-      if (vs.meal && Math.random() < dt * 0.5) { pet.squash = 0.4; floatText(W * 0.5 + rand(-40, 40), floorY - R() * 2, pickOne(['냠냠', '쩝쩝', '😋']), '#ff8fab'); }
+      pet.tx = dineMungX();
+      if (vs.meal && Math.random() < dt * 0.5) { pet.squash = 0.4; floatText(pet.x + rand(-30, 30), floorY - R() * 2, pickOne(['냠냠', '쩝쩝', '😋']), '#ff8fab'); }
       S.hunger = clamp(S.hunger + (vs.meal ? 0.12 : 0.04) * dt); S.fun = clamp(S.fun + 0.08 * dt);
       if (vs.memSay) { vs.memSay.t -= dt; if (vs.memSay.t <= 0) vs.memSay = null; }
       vs.talkT -= dt;
       if (vs.talkT <= 0) {
         vs.talkT = rand(5, 9);
-        if (Math.random() < 0.7 || speech) { const m = pickOne(vs.members); vs.memSay = { m, text: pickOne(MEM_LINES[m]), t: 2.8 }; }
+        if (vs.bday && Math.random() < 0.5) { if (Math.random() < 0.6 || speech) vs.memSay = { m: vs.bday, text: pickOne(BDAY_MEM), t: 2.8 }; else say(MEMBERS[vs.bday].call + ' ' + pickOne(['생일 축하해애 🎂', '생일 축하해!! 🎉', '태어나줘서 고마워 🤍']), 2.4); }
+        else if (Math.random() < 0.7 || speech) { const m = pickOne(vs.members); vs.memSay = { m, text: pickOne(MEM_LINES[m]), t: 2.8 }; }
         else say((Math.random() < 0.5 ? MEMBERS[pickOne(vs.members)].call + ' ' : '') + pickOne(MUNG_REPLY), 2.2);
       }
       if (vs.t > vs.stay) endVisit(false);
     }
   }
-  function memSeat(i, n, cx, tw) { const slots = n === 1 ? [1] : n === 2 ? [-1, 1] : [-1.2, 1.2, 0.62]; return cx + slots[i] * tw * 0.36; }
+  function memSeat(i, n) { const t = lowTableRect(), slots = n === 1 ? [0] : n === 2 ? [-0.25, 0.25] : [-0.36, 0, 0.36]; return t.cx + slots[i] * t.tw; }
   function drawVisit() {
     if (!visit) return;
     const vs = visit;
@@ -2578,29 +2692,9 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
       ctx.restore();
     }
     if (vs.phase === 'sit' && vs.memSay) {
-      const r = R(), tw = Math.min(W * 0.86, r * 6.4), i = vs.members.indexOf(vs.memSay.m);
-      bubbleAt(vs.memSay.text, memSeat(i, vs.members.length, W * 0.5, tw), floorY - r * 0.55 - r * 2.1, Math.min(1, vs.memSay.t * 3));
+      const r = R(), i = vs.members.indexOf(vs.memSay.m);
+      bubbleAt(vs.memSay.text, memSeat(i, vs.members.length), lowTableRect().top - r * 1.15, Math.min(1, vs.memSay.t * 3));
     }
-  }
-  // 식탁 + 멤버 (뭉탱이 그린 다음 → 식탁이 앞)
-  function drawDining() {
-    if (!visit || visit.phase !== 'sit' || mode !== 'idle') return;
-    const r = R(), cx = W * 0.5, ty = floorY - r * 0.55, tw = Math.min(W * 0.86, r * 6.4), ms = visit.members;
-    ms.forEach((m, i) => {
-      const mx = memSeat(i, ms.length, cx, tw), mr = r * 0.85, im = imgs.mem[m];
-      if (im) { const h = mr * 2.4, w = h * im.width / im.height; ctx.drawImage(im, mx - w / 2, ty - h + r * 0.2, w, h); }
-      else {
-        ctx.fillStyle = MEMBERS[m].color; ctx.beginPath(); ctx.arc(mx, ty - mr * 0.6, mr, 0, 7); ctx.fill();
-        ctx.fillStyle = '#2f2650'; ctx.font = (r * 0.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.fillText(MEMBERS[m].name, mx, ty - mr * 0.5);
-      }
-    });
-    ctx.fillStyle = 'rgba(47,38,80,0.12)'; ctx.beginPath(); ctx.ellipse(cx, floorY + 4, tw * 0.5, r * 0.14, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#c9a27c'; ctx.fillRect(cx - tw * 0.42, ty + r * 0.12, r * 0.14, floorY - ty - r * 0.12); ctx.fillRect(cx + tw * 0.42 - r * 0.14, ty + r * 0.12, r * 0.14, floorY - ty - r * 0.12);
-    ctx.fillStyle = '#e6c49c'; rr(ctx, cx - tw / 2, ty - r * 0.05, tw, r * 0.24, 8); ctx.fill();
-    ctx.fillStyle = '#fff6ea'; rr(ctx, cx - tw / 2 + 6, ty - r * 0.1, tw - 12, r * 0.12, 6); ctx.fill();
-    const foods = visit.meal ? ['tteokbokki', 'mala', 'kong', 'gejang', 'onigiri'] : ['cookie', 'milk', 'dango', 'donut', 'strawberry'];
-    const nf = Math.min(foods.length, ms.length + 2);
-    for (let i = 0; i < nf; i++) foodIcon(ctx, foods[i], cx - tw * 0.34 + i * (tw * 0.68 / Math.max(1, nf - 1)), ty - r * 0.22, r * 0.26);
   }
   // =====================================================================
   // 업데이트
@@ -2641,6 +2735,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
   ];
   function loveLine() { const lv = levelInfo().lv; let pool = LOVE[0][1]; LOVE.forEach(([need, l]) => { if (lv >= need) pool = l; }); let t = pickOne(pool); if (nickOn() && Math.random() < 0.4) t = callNick() + ' ' + t; return t; }
   function monoLine() {
+    if (EV && Math.random() < 0.3) return evLine();
     if (nickOn() && Math.random() < 0.22) return nickLine();
     if (Math.random() < 0.25) return loveLine();
     const h = new Date().getHours(), pool = MONO.any.slice();
@@ -2904,12 +2999,44 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     [-1, 1].forEach(sd => { ctx.fillStyle = f; rr(ctx, x + sd * w * 0.42 - w * 0.08, base - h * 0.7, w * 0.16, h * 0.6, h * 0.12); ctx.fill(); ctx.stroke(); });
     ctx.beginPath(); ctx.moveTo(x, base - h * 0.92); ctx.lineTo(x, base - h * 0.52); ctx.stroke();
   }
+  function lowTableRect() { const tw = Math.min(W * 0.36, 190), th = tw * 0.3, base = wallY + (floorY - wallY) * 0.72; return { cx: W * 0.4, base, tw, th, top: base - th }; }
   function drawLowTable() {
-    const cx = W * 0.4, base = wallY + (floorY - wallY) * 0.72, tw = Math.min(W * 0.36, 190), th = tw * 0.3, lw = Math.max(2.5, tw * 0.025);
+    const { cx, base, tw, th } = lowTableRect(), lw = Math.max(2.5, tw * 0.025);
     ctx.lineJoin = 'round'; ctx.lineWidth = lw; ctx.strokeStyle = '#9a7350';
     ctx.fillStyle = 'rgba(47,38,80,0.12)'; ctx.beginPath(); ctx.ellipse(cx, base, tw * 0.6, th * 0.22, 0, 0, 7); ctx.fill();
     ctx.fillStyle = '#c9a27c'; [-0.4, 0.4].forEach(a => { rr(ctx, cx + a * tw - tw * 0.04, base - th * 0.75, tw * 0.08, th * 0.75, 3); ctx.fill(); ctx.stroke(); });
     ctx.fillStyle = '#e6c49c'; rr(ctx, cx - tw / 2, base - th * 1.0, tw, th * 0.32, 6); ctx.fill(); ctx.stroke();
+    drawTableTop();
+  }
+  // 멤버가 놀러오면 식탁 뒤에 앉아요 (식탁보다 먼저 그려서 식탁이 앞)
+  function dineMungX() { const t = lowTableRect(); return t.cx + t.tw * 0.98; }
+  function drawDineMembers() {
+    if (!visit || visit.phase !== 'sit' || mode !== 'idle') return;
+    const r = R(), t = lowTableRect(), ms = visit.members, mr = r * 0.56, cut = t.top + t.th * 0.3;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, cut); ctx.clip();
+    ms.forEach((m, i) => {
+      const mx = memSeat(i, ms.length), im = imgs.mem[m], bob = Math.sin(T * 2 + i) * 1.5;
+      if (im) { const h = mr * 2.8, w = h * im.width / im.height; ctx.drawImage(im, mx - w / 2, cut - h + bob, w, h); }
+      else {
+        ctx.fillStyle = MEMBERS[m].color; ctx.beginPath(); ctx.arc(mx, t.top - mr * 0.45 + bob, mr, 0, 7); ctx.fill();
+        ctx.fillStyle = '#2f2650'; ctx.font = (r * 0.24) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.fillText(MEMBERS[m].name, mx, t.top - mr * 0.55 + bob);
+      }
+    });
+    ctx.restore();
+  }
+  // 식탁 위: 멤버랑 밥 먹을 땐 음식, 기념일엔 케이크
+  let cakeBox = null, giftBox = null;
+  function drawTableTop() {
+    const r = R(), t = lowTableRect(), y = t.top + t.th * 0.04;
+    cakeBox = giftBox = null;
+    const dine = visit && visit.phase === 'sit' && mode === 'idle';
+    if (dine) {
+      const foods = visit.meal ? ['tteokbokki', 'mala', 'kong', 'gejang', 'onigiri'] : ['cookie', 'milk', 'dango', 'donut', 'strawberry'];
+      const nf = Math.min(foods.length, visit.members.length + 1), skip = EV ? 1 : 0;
+      for (let i = 0; i < nf; i++) { const k = (i + 0.5) / nf - 0.5; if (skip && Math.abs(k) < 0.15) continue; foodIcon(ctx, foods[i], t.cx + k * t.tw * 0.8, y - r * 0.12, r * 0.22); }
+    }
+    if (EV && mode !== 'sleep') drawCake(t.cx + (dine ? 0 : t.tw * 0.06), y, r);
+    if (EV && mode !== 'sleep' && !dine) drawGift(t.cx - t.tw * 0.3, y, r);
   }
   function sofaPupPos() { const { x, w, base, h } = sofaRect(), im = imgs.pupSleep, pw = w * 0.5, ph = im ? pw * im.height / im.width : pw * 0.45; return { x, pw, ph, seat: base - h * 0.42 }; }
   function drawSofaPup() {
@@ -2929,8 +3056,9 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.moveTo(wx, wy + wh / 2); ctx.lineTo(wx + ww, wy + wh / 2); ctx.stroke();
     // 벽 소품
+    drawEventDeco();
     drawFloor(ctx, 'wood', 0, wallY, W, H - wallY);
-    drawFridge(ctx); drawLowTable(); drawSofa(); drawPupBody();
+    drawFridge(ctx); drawSofa(); drawDineMembers(); drawLowTable(); drawPupBody();
     if (mode === 'sleep') { ctx.fillStyle = '#e4dcfb'; ctx.beginPath(); ctx.ellipse(pet.x, floorY - R() * 0.2, R() * 1.35, R() * 0.2, 0, 0, 7); ctx.fill(); }
   }
   function renderBath() {
@@ -3034,7 +3162,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     }
     if (mode === 'walk' && walk) { renderWalk(); drawParticles(); return; }
     if (mode === 'wash') { renderBath(); renderPetLayer(); renderBathFront(); }
-    else { renderRoom(); renderPetLayer(); drawDining(); drawPupRoom(); drawNewsProps(); drawVisit(); if (mode === 'idle' && lateNight()) drawNightRoom(); if (act && act.type === 'peek' && imgs.peek) drawPeek(); if (mode === 'sleep') renderSleepShade(); else if (SLEEPY_FX && mode === 'idle' && moodNow() === 'sleepy') drawSmallZ(); }
+    else { renderRoom(); renderPetLayer(); drawPartyHat(); drawPupRoom(); drawEvent(); drawNewsProps(); drawVisit(); if (mode === 'idle' && lateNight()) drawNightRoom(); if (act && act.type === 'peek' && imgs.peek) drawPeek(); if (mode === 'sleep') renderSleepShade(); else if (SLEEPY_FX && mode === 'idle' && moodNow() === 'sleepy') drawSmallZ(); }
     drawParticles();
     if (speech) { if (act && act.type === 'peek') bubbleAt(speech.text, W / 2, H * 0.36, Math.min(1, speech.t * 3)); else bubbleAt(speech.text, pet.x, floorY - R() * 2.3 - pet.hop, Math.min(1, speech.t * 3)); }
   }
