@@ -3214,7 +3214,60 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
   document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); bgmStop(); } else { last = performance.now(); if (audioUnlocked) bgmStart(); } });
   window.addEventListener('pagehide', save);
   setMode(S.sleeping ? 'sleep' : 'idle'); renderDots();
-  if (!store.get('mungtaeng-intro')) $('intro').hidden = false;
+  // ---- 선착순 정원 (테스트용, 깃허브 사이트에서만) ----
+  const GATE_ON = /\.github\.io$/.test(location.hostname);
+  const GATE = { max: 10, project: 'winter-e6c5a', key: 'AIzaSyAssJ7V_0NI1Cy9D7tEarIr4GkFXpdNv14', owner: 'e31084deeb6b084f650a92fcf3b7157515e3cf82fbdec81e84c0912f8efea0fa' };
+  const GATE_TEXT = { wait: ['잠깐만요….', ''], full: ['다음 기회에 ㅋㅋ', ''], error: ['연결이 잠깐 안 돼요', '새로고침해 주세요'] };
+  function gateBox(kind, closable) {
+    let g = document.getElementById('gate');
+    if (!kind) { if (g) g.remove(); return; }
+    if (!g) {
+      g = document.createElement('div'); g.id = 'gate';
+      g.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#efe9fb;color:#2f2650;font-family:var(--font-display),sans-serif;text-align:center;padding:24px;box-sizing:border-box';
+      document.body.appendChild(g);
+    }
+    const [a, b] = GATE_TEXT[kind];
+    g.innerHTML = '';
+    const t = document.createElement('div'); t.textContent = a; t.style.fontSize = kind === 'full' ? '30px' : '22px'; g.appendChild(t);
+    if (b) { const s = document.createElement('div'); s.textContent = b; s.style.cssText = 'font-size:16px;color:#6d6290'; g.appendChild(s); }
+    if (kind === 'error') { const r = document.createElement('button'); r.type = 'button'; r.textContent = '새로고침'; r.style.cssText = 'margin-top:8px;font:16px var(--font-display),sans-serif;border:0;border-radius:999px;padding:10px 22px;background:#2f2650;color:#fff;cursor:pointer'; r.onclick = () => location.reload(); g.appendChild(r); }
+    if (closable) { const c = document.createElement('small'); c.textContent = '(개발자 모드: 화면 누르면 닫혀요)'; c.style.cssText = 'margin-top:14px;color:#9a90bd'; g.appendChild(c); g.onclick = e => { if (e.target.tagName !== 'BUTTON') gateBox(null); }; }
+  }
+  function gateGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function gateSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  async function gateSha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+  function gateFetch(url, opt) { const c = new AbortController(), tm = setTimeout(() => c.abort(), 12000); return fetch(url, Object.assign({ signal: c.signal, cache: 'no-store' }, opt)).finally(() => clearTimeout(tm)); }
+  async function gateCheck() {
+    // 제작자 기기
+    const om = location.hash.match(/owner=([\w-]+)/);
+    if (om && window.crypto && crypto.subtle && await gateSha(om[1]) === GATE.owner) {
+      gateSet('mt-pass', 'owner');
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    }
+    if (gateGet('mt-pass')) return 'ok';
+    let dev = gateGet('mt-device');
+    if (!dev || dev.length < 16) { const a = new Uint8Array(18); crypto.getRandomValues(a); dev = [...a].map(x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('') + Date.now().toString(36).slice(-6); gateSet('mt-device', dev); }
+    const root = 'projects/' + GATE.project + '/databases/(default)/documents', base = 'https://firestore.googleapis.com/v1/' + root;
+    let docs;
+    try { const r = await gateFetch(base + '/slots?pageSize=50&key=' + GATE.key); if (!r.ok) return 'error'; docs = (await r.json()).documents || []; }
+    catch (e) { return 'error'; }
+    const taken = new Set();
+    for (const d of docs) { const id = d.name.split('/').pop(); taken.add(id); if (d.fields && d.fields.device && d.fields.device.stringValue === dev) { gateSet('mt-pass', id); return 'ok'; } }
+    for (let i = 1; i <= GATE.max; i++) {
+      const id = String(i); if (taken.has(id)) continue;
+      const body = { writes: [{ update: { name: root + '/slots/' + id, fields: { device: { stringValue: dev } } }, updateTransforms: [{ fieldPath: 'at', setToServerValue: 'REQUEST_TIME' }], currentDocument: { exists: false } }] };
+      try { const r = await gateFetch(base + ':commit?key=' + GATE.key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (r.ok) { gateSet('mt-pass', id); return 'ok'; } }
+      catch (e) { return 'error'; }
+      // 그새 누가 먼저 앉았으면 다음 자리로
+    }
+    return 'full';
+  }
+  function gateStart(go) {
+    if (!GATE_ON || gateGet('mt-pass') && !/owner=/.test(location.hash)) { go(); return; }
+    gateBox('wait');
+    gateCheck().then(res => { if (res === 'ok') { gateBox(null); go(); } else gateBox(res); }, () => gateBox('error'));
+  }
+  gateStart(() => { if (!store.get('mungtaeng-intro')) $('intro').hidden = false; });
   $('introGo').addEventListener('click', () => { $('intro').hidden = true; store.set('mungtaeng-intro', '1'); });
   renderHeader(); renderGauges();
   {
