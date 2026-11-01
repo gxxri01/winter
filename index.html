@@ -1158,12 +1158,12 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (type === 'rice') return pickOne(['밥만 먹으니까 좀….심심해', '공깃밥도 맛있긴해', '반찬도 있음 좋겠다….']);
     if (type === 'pint') return '파인트 한 통은 기본이지 ㅋㅋㅋㅋㅋㅋㅋ';
     if (type === 'bunmoja') return '쫀득쫀득 분모자아아';
-    return pickOne(['냠냠 마싯다아', '와 머야 존맛….', '오물오물', '더 줘어어']);
+    return pickOne(['냠냠 마싯다아', '와 머야 존맛….', '오물오물', '더 줘어어'].concat(TALK.eat));
   }
   let flying = null, fridgeGlow = 0;
   function feedFrom(type) {
     if (!S.fridge[type] || flying || pet.eatT > 0) return;
-    if (S.hunger >= 95) { say('아냐아냐 배불러…. 그만….'); sfx.full(); pet.fullT = 2; return; }
+    if (S.hunger >= 95) { say(pickOne(['아냐아냐 배불러…. 그만….'].concat(TALK.full))); sfx.full(); pet.fullT = 2; return; }
     S.fridge[type]--; if (S.fridge[type] <= 0) delete S.fridge[type];
     const f = FOOD[type]; flying = { type, val: f[2], fun: f[3], t: 0 }; fridgeGlow = 0; save();
   }
@@ -1297,7 +1297,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
 
   function sleepNow() {
     if (S.energy >= 90) { say('하나도 안졸린데…?'); return; }
-    S.sleeping = true; setMode('sleep'); sfx.sleep(); save();
+    S.sleeping = true; setMode('sleep'); sfx.sleep(); save(); if (Math.random() < 0.6) say(pickOne(TALK.bed), 2.4);
   }
   function wake(auto) {
     S.sleeping = false; setMode('idle'); sfx.wake();
@@ -1346,7 +1346,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
   function seasonNow() { const m = new Date().getMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'fall' : 'winter'; }
   function pickPhoto() { if (S.walkPolDay === todayKey()) return null; const ok = WALK_PHOTOS.filter(ph => !ph.off && !gotPage(ph.id) && (ph.season === 'all' || ph.season === seasonNow())); return ok.length ? pickOne(ok) : null; }
   // 걸으면서 하는 혼잣말
-  const WALK_TALK_ME = ['날씨 넘 조타아~~', '뽀뇨야 천천히 가….', '오늘 바람 시원하다', '저기서 맛있는 냄새 나는데…?', '산책하니까 배고파지는 거 같아', '흥얼흥얼~~', '뽀뇨야 우리 저기까지만 가자', '하늘 봐봐 구름 귀엽다', '나뭇잎 바스락바스락 조아', '집 가서 낮잠 잘까….', '뽀뇨 꼬리 흔드는 거 봐 ㅋㅋㅋ', '오늘은 좀 오래 걸을래'];
+  const WALK_TALK_ME = ['바람 냄새 조타~~', '걷다 보니, 벌써 여기', '날씨 넘 조타아~~', '뽀뇨야 천천히 가….', '오늘 바람 시원하다', '저기서 맛있는 냄새 나는데…?', '산책하니까 배고파지는 거 같아', '흥얼흥얼~~', '뽀뇨야 우리 저기까지만 가자', '하늘 봐봐 구름 귀엽다', '나뭇잎 바스락바스락 조아', '집 가서 낮잠 잘까….', '뽀뇨 꼬리 흔드는 거 봐 ㅋㅋㅋ', '오늘은 좀 오래 걸을래'];
   const WALK_TALK_PUP = ['🐾', '💕', '🎵', '✨', '❓', '💨'];
   const WALK_TALK_TIRED = ['힘들어…. 쫌만 쉬다 가자', '다리 아파아….', '이제 집에 갈까….'];
   function pickFind() {
@@ -1356,7 +1356,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
   }
   function startWalk() {
     walk = { t: 0, dist: 0, speed: 0, next: rand(6, 9), talkT: rand(3, 4.5), found: [], pop: null, stopT: 0, done: false, barkT: rand(3, 5), hopMe: 0, hopPup: 0 };
-    say('산책 가자아아 ' + S.puppy + '도 같이 가~~', 2.2);
+    say(pickOne(['산책 가자아아 ' + S.puppy + '도 같이 가~~'].concat(TALK.walkGo)), 2.2);
     $('walkDuck').hidden = true; $('walkAgain').hidden = true; $('walkHome').textContent = '집에 가기';
     $('findPop').hidden = true;
     updateWalkInfo();
@@ -1445,7 +1445,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
       const f = ph ? { who: 'both', photo: ph } : pickFind(); w.pending = f; w.stopT = 1.1;
       if (f.photo) { w.hopPup = 0.6; w.hopMe = 0.6; say('같이 사진 찍자아~~ 📸', 1.1); }
       else if (f.who === 'pup') { w.hopPup = 0.6; pupSpeech = { text: '❗', t: 1.1 }; sfx.bark(); }
-      else { w.hopMe = 0.6; say(pickOne(['어? 머야 이거', '오오?', '헉 이거 봐']), 1.1); }
+      else { w.hopMe = 0.6; say(pickOne(['어? 머야 이거', '오오?', '헉 이거 봐', '저기 뭐 있어…! 뭐지']), 1.1); }
     }
     // 혼잣말 (아이템 이벤트 직전엔 쉬기)
     w.talkT -= dt;
@@ -1849,7 +1849,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (zone === 'belly' && Math.random() < 0.75) { pet.dizzyT = 0; pet.squash = 1; pet.hopV = 120; pet.hop = 0.01; say(pickOne(['배는 간지러워 ㅋㅋㅋㅋ', '아 거기 간지러워어어', 'ㅋㅋㅋㅋ 배 하트 누르지마아']), 1.4); return; }
     if (zone === 'head' && Math.random() < 0.7) { say(pickOne(['머리 쓰담쓰담 조아 🥰', '머리 쓰다듬어주는거 최고야', '노란거 만지면 안대에 ㅋㅋ']), 1.4); return; }
     if (zone === 'cheek' && Math.random() < 0.7) { say(pickOne(['볼 말랑말랑하지?', '볼 쭈욱 늘어난다아', '헤헤 볼 만지는거 조아']), 1.4); return; }
-    say(nickOn() && Math.random() < 0.15 ? callNick() + ' 손 따뜻해 헤헤' : pickOne(['헤헤헤', '조아조아', '한 번 더어', '간지러웡', '뭉탱뭉탱~~']), 1.4);
+    say(nickOn() && Math.random() < 0.15 ? callNick() + ' 손 따뜻해 헤헤' : pickOne(['헤헤헤', '조아조아', '한 번 더어', '간지러웡', '뭉탱뭉탱~~'].concat(TALK.happy)), 1.4);
   }
   function petZone(p) {
     if (!p) return 'body';
@@ -1864,14 +1864,15 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (lastFoam && Math.hypot(p.x - lastFoam.x, p.y - lastFoam.y) < 14) return;
     lastFoam = p;
     foam.push({ x: p.x - pet.x, y: p.y - floorY, r: rand(6, 15), a: 1 });
-    washProg = Math.min(100, washProg + 3.2); $('washFill').style.width = washProg + '%';
+    const wp0 = washProg; washProg = Math.min(100, washProg + 3.2); $('washFill').style.width = washProg + '%';
+    if (wp0 < 40 && washProg >= 40) say(pickOne(TALK.foam), 1.8);
     if (Math.random() < 0.5) sfx.bubble();
     pet.squash = 0.4;
     if (washProg >= 100) showerT = 1.8;
   }
   function finishWash() {
     S.clean = 100; S.fun = clamp(S.fun + 5); dlog('wash'); addXp(12); foam = [];
-    pet.happyT = 2; say('뽀송뽀송 완전 개운해~~~', 2.5); sfx.wash(); burst(pet.x, floorY - R(), '#7cc6ff', 16);
+    pet.happyT = 2; say(pickOne(['뽀송뽀송 완전 개운해~~~'].concat(TALK.clean)), 2.5); sfx.wash(); burst(pet.x, floorY - R(), '#7cc6ff', 16);
     save(); setMode('idle');
   }
 
@@ -2202,8 +2203,33 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (Math.min(S.hunger, S.clean, S.fun) < 25) return 'sad';
     return 'normal';
   }
+  // ---- 말투 참고해서 추가한 대사 (11-01) ----
+  const TALK = {
+    greet: ['오늘 하늘 봤어…? 나는 봤댜 ✨', '왔쟈~~ >_<', '기다렸다, 엄청', '왔어', '오늘도 수고했다~~'],
+    luck: ['오늘은 운이 조켸써 🍀', '🍀🍀🍀🍀🍀🍀🍀🍀🍀🍀🍀', '행운 가득 받아라~~ 나도 좀 가질래'],
+    hungry: ['배에서 꾸르르르르르르륵 소리 나…'],
+    fridge: ['냉장고야 열려라….'],
+    eat: ['냠✨냠✨', '이거 내꺼쟈? 헤헤', '이거 뽀뇨 주려고 산거야. 절대 내가 먹고싶어서 아님', '근데 내가 다 먹었네', '헤', '냉장고 털이범(?)뭉탱'],
+    full: ['배불러따, 진짜로', '배부르다. 행복하다'],
+    sleepy: ['눈이 자꾸 감겨…. 감긴댜….', '뭉졸려 💤'],
+    late: ['졸려??'],
+    bed: ['오늘 꿈에 뽀뇨 나오면 좋겠댜~~', '이불 속 최고야 ><', '나 먼저 잔댜…. 미안하댜….', '나 먼저 잔다 잘자 굿나잇ᶻᶻᶻ'],
+    dirty: ['꼬질…. 나 꼬질해…?', '꼬질한거 아니야… 그냥 털이 원래 이런거궁'],
+    foam: ['거품 뽀글뽀글뽀글뽀글뽀글~~'],
+    clean: ['반짝✨반짝✨ 됐쟈?', '나 이제 깨끗해 걱정마랑', '반짝반짝 뭉탱이 등장. 대단하지'],
+    walkGo: ['산책 가쟈!!'],
+    walk: ['바람 냄새 조타~~', '걷다 보니, 벌써 여기'],
+    walkFind: ['저기 뭐 있어…! 뭐지'],
+    pup: ['뽀신나 🐾', '{p} 또 잔댜… 나도 잘래', '{p}랑 눈 마주쳤어 >_< ♡', '{p} 간식은 내가 지킨댜', '{p}는 살짝 애교쟁이(?)강쥐', '{p} 또 나 따라오네. 인기많음', '{p}가 쳐다봐서 나도 쳐다봤어'],
+    happy: ['헤헤헤헤헤헤 ✨', '오늘 뭔가 조은 날 같아', '?', '노란 모자는 노란색이 아니야! 햇빛색이야', 'ㅋㅋㅋㅋㅋ 나 방금 웃겼쟈', '😊🍓'],
+    mono: ['간식 다 먹어가네', '이 노래 너무 좋댜……', '오늘 하루 벌써 끝나네….', '구름 보면 솜사탕 생각나는 사람?', '갑자기 생각났는데 나 오늘 한번도 안넘어졌어', '사실인지 모르겠는데 뽀뇨는 꿈에서도 뛰는 것 같아', '이거 내가 정한 오늘의 노래야',
+      '찾았어??', '나도 못 찾았어…. 미안하다….', '숨으라고 해놓고 내가 까먹었네..'],
+    sulk: ['흥…. 몰라', '안 놀아줄 거야, 진짜로', '🤨'],
+    recover: ['나 이제 안삐졌는데 다들 걱정하네', '봤지 내 회복력']
+  };
+  function pupTalk(t) { return t.replace(/\{p\}/g, S.puppy || '뽀뇨'); }
   function needLine() {
-    const list = [['hunger', '배고파…. 냉장고 열어조….'], ['energy', '하암…. 눈이 자꾸 감겨….'], ['clean', '몸이 끈적끈적해…. 씻고싶다….'], ['fun', '심심해애애 놀아조~~~']];
+    const list = [['hunger', pickOne(['배고파…. 냉장고 열어조….'].concat(TALK.hungry))], ['energy', pickOne(['하암…. 눈이 자꾸 감겨….'].concat(TALK.sleepy))], ['clean', pickOne(['몸이 끈적끈적해…. 씻고싶다….'].concat(TALK.dirty))], ['fun', '심심해애애 놀아조~~~']];
     let worst = null;
     for (const [k, line] of list) if (S[k] < 40 && (!worst || S[k] < S[worst[0]])) worst = [k, line];
     if (worst && worst[0] === 'clean' && Math.random() < 0.4) return 'ggozil';
@@ -2481,7 +2507,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     '맘에 드는 사진 하나 찍게 될 거야 📸', '오늘은 간식이 행운을 불러와', '오랜만에 크게 웃는 날', '작은 선물 같은 하루가 될 거야 🎁', '하고 싶었던 말, 오늘 해봐'];
   const LUCKY_COLORS = [['노랑', '#f2cf33'], ['연보라', '#c9b8f0'], ['분홍', '#ff8fab'], ['하늘색', '#9fd8ff'], ['민트', '#8fe0c4'], ['하양', '#f4f3f0'], ['주황', '#ffb36b']];
   const CHEERS = ['오늘도 화이팅 ✊', '무리하지 말기!!', '내가 응원할게 🤍', '밥 꼭 챙겨 먹어', '오늘도 수고 많아', '힘들면 나 보러 와'];
-  function hashDay(k) { let h = 0; for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+  function hashDay(k) { let h = 0; for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h & 0x7fffffff; } // 음수 안 나오게
   function showFortune() {
     const k = todayKey(), h = hashDay(k + (S.born || '')), lucky = FOODS[(h >> 3) % FOODS.length], col = LUCKY_COLORS[(h >> 7) % LUCKY_COLORS.length];
     const box = $('fortuneBox');
@@ -2499,6 +2525,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     const what = (h >> 5) % 2 ? '음식' : '색';
     const josa = /[가-힣]$/.test(pick) && hasBatchim(pick) ? '이래' : '래';
     say('오늘의 행운 ' + what + '은 ' + pick + josa + ' 🍀', 3.4); pet.happyT = 1.2; sfx.pet();
+    setTimeout(() => { if (mode === 'idle' && (!speech || speech.t < 0.3)) say(pickOne(TALK.luck), 2.4); }, 3800);
   }
   $('fortuneOk').addEventListener('click', () => { $('fortune').hidden = true; pet.happyT = 1.2; say('오늘도 좋은 하루 🍀', 1.8); });
   function startDay() {
@@ -2611,7 +2638,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     else if (pr.st === 'sleep') { pr.x = sofaRect().x; if (pr.stT <= 0) { pr.st = 'sit'; pr.stT = rand(5, 8); pr.x = sofaRect().x - sofaRect().w * 0.6; pr.tx = pr.x; pr.hopV = 260; pr.hop = 0.01; pr.say = { text: '🥱', t: 1.6 }; } }
     if (pr.st !== 'sleep' && pr.st !== 'play') {
       pr.sayT -= dt;
-      if (pr.sayT <= 0) { pr.sayT = rand(5, 9); if (Math.random() < 0.65) pr.say = { text: pickOne(PUP_ROOM_LINES), t: 1.8 }; else if (!speech) say(pickOne([S.puppy + '야 이리 와', S.puppy + ' 귀여워어 🥹', '같이 놀자아', '쓰담쓰담~~']), 2); }
+      if (pr.sayT <= 0) { pr.sayT = rand(5, 9); if (Math.random() < 0.65) pr.say = { text: pickOne(PUP_ROOM_LINES), t: 1.8 }; else if (!speech) say(Math.random() < 0.45 ? pupTalk(pickOne(TALK.pup)) : pickOne([S.puppy + '야 이리 와', S.puppy + ' 귀여워어 🥹', '같이 놀자아', '쓰담쓰담~~']), 2); }
     }
   }
   // 몸은 방 그릴 때(뭉탱이보다 먼저) 그려서 살짝 뒤에 있는 것처럼
@@ -2738,7 +2765,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (EV && Math.random() < 0.3) return evLine();
     if (nickOn() && Math.random() < 0.22) return nickLine();
     if (Math.random() < 0.25) return loveLine();
-    const h = new Date().getHours(), pool = MONO.any.slice();
+    const h = new Date().getHours(), pool = MONO.any.concat(TALK.mono);
     if (h >= 6 && h < 10) pool.push(...MONO.morning, ...MONO.morning); else if (h >= 11 && h < 14) pool.push(...MONO.noon, ...MONO.noon);
     else if (h >= 18 && h < 23) pool.push(...MONO.evening, ...MONO.evening); else if (h < 5) pool.push(...MONO.dawn, ...MONO.dawn);
     if (Math.random() < 0.45) return envLine();
@@ -2760,7 +2787,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
       else say('🎵 「' + sg[0] + '」 ' + pickOne(['흥얼흥얼~~', '부르는 중….', '흥얼흥얼….']) + ' ' + sg[1], 4);
       sfx.hum();
     } else if (type === 'dance') { act = { type, t: 5, age: 0, beat: -1 }; say(pickOne(['둠칫둠칫~~', '춤춘다아아', '신난다~~~ ✌️']), 2.5); }
-    else if (type === 'fridge') { const f = fridgeRect(); act = { type, t: 5, age: 0 }; pet.tx = minPetX(); setTimeout(() => { if (act && act.type === 'fridge') { say(pickOne(['머 먹지….', '냉장고에 머 있더라…?', '배고픈건 아닌데…. 머 먹고싶다']), 2.6); fridgeGlow = 2; } }, 1300); }
+    else if (type === 'fridge') { const f = fridgeRect(); act = { type, t: 5, age: 0 }; pet.tx = minPetX(); setTimeout(() => { if (act && act.type === 'fridge') { say(pickOne(TALK.fridge.concat(['머 먹지….', '냉장고에 머 있더라…?', '배고픈건 아닌데…. 머 먹고싶다'])), 2.6); fridgeGlow = 2; } }, 1300); }
     else if (type === 'peek') { act = { type, t: 2.6, age: 0 }; setTimeout(() => { if (act && act.type === 'peek') playPeekSnd(); }, 250); setTimeout(() => { if (act && act.type === 'peek') say(pickOne(['…왜 봐?', '…머야 왜 쳐다봐', '…?']), 1.6); }, 700); }
     else if (type === 'cuddle') { act = { type, t: 3.2, age: 0 }; pet.tx = clamp(W / 2, minPetX(), W - R() - 10); setTimeout(() => { if (act && act.type === 'cuddle') { pet.squash = 1; pet.happyT = 2; hearts(pet.x, floorY - R() * 2.2, 5); say((nickOn() ? callNick() + ' ' : '') + pickOne(['부비부비~~ 🤍', '나 안아조', '헤헤 옆에 있을래']), 2.4); } }, 900); }
     else { act = { type: 'mono', t: 3, age: 0 }; say(monoLine(), 3); }
@@ -2818,8 +2845,8 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     pet.dizzyT = Math.max(0, (pet.dizzyT || 0) - dt);
     pet.fullT = Math.max(0, pet.fullT - dt); pet.stareT = Math.max(0, pet.stareT - dt); pet.angryT = Math.max(0, pet.angryT - dt);
     // 기분이 5씩 떨어질 때마다 가끔 버럭 (25 밑이면 계속 화난 얼굴)
-    { const mk = Math.floor(S.fun / 5); if (pet.funMark < 0 || mk > pet.funMark) pet.funMark = mk;
-      else if (mk < pet.funMark) { pet.funMark = mk; if (mode === 'idle' && S.fun >= 25 && Math.random() < 0.5) { pet.angryT = 3; pet.squash = 0.6; sfx.full(); say(pickOne(['흥…. 나 안 놀아줘?', '심심하다니까아아', '뿌우….', '삐졌어 진짜로']), 2.4); } } } pet.petSpam = Math.max(0, pet.petSpam - dt * 0.8);
+    { const mk = Math.floor(S.fun / 5); if (pet.funMark < 0 || mk > pet.funMark) { if (pet.funMark >= 0 && pet.funMark < 5 && mk >= 5 && mode === 'idle') setTimeout(() => say(pickOne(TALK.recover), 2.2), 1600); pet.funMark = mk; }
+      else if (mk < pet.funMark) { pet.funMark = mk; if (mode === 'idle' && S.fun >= 25 && Math.random() < 0.5) { pet.angryT = 3; pet.squash = 0.6; sfx.full(); say(pickOne(['흥…. 나 안 놀아줘?', '심심하다니까아아', '뿌우….', '삐졌어 진짜로'].concat(TALK.sulk)), 2.4); } } } pet.petSpam = Math.max(0, pet.petSpam - dt * 0.8);
     petCool = Math.max(0, petCool - dt);
 
     if (flying) {
@@ -2901,7 +2928,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     afternoon: ['오후 되니까 나른해….', '간식 시간이다아', '하품 나온다아'],
     sunset: ['노을 진짜 예쁘다…. 🌇', '벌써 해 진다', '저녁 머 먹지'],
     evening: ['오늘도 고생했다아 🤍', '밤이다아 오늘 하루 어땠어?', '저녁 먹었어??'],
-    late: ['이제 자자…. 내일 또 놀자', '졸려어…. 근데 더 놀고싶어', '불 끄고 누울까….'],
+    late: ['졸려??', '이제 자자…. 내일 또 놀자', '졸려어…. 근데 더 놀고싶어', '불 끄고 누울까….'],
     spring: ['벚꽃 날린다아 🌸', '봄바람 살랑살랑~~', '꽃구경 가고싶다'],
     summer: ['더워어어 녹는다….', '아이스크림 먹고싶다 🍦', '여름엔 역시 수박이지'],
     fall: ['낙엽 바스락바스락 🍂', '가을 하늘 높다아', '붕어빵의 계절이 왔다'],
@@ -3192,7 +3219,7 @@ body { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: ma
     if (S.sleeping) l = '쿨… 쿨…';
     else if (AWAY_HRS >= 24) { l = pickOne(['흥…. 나 잊어버린 줄 알았자나', '왜 이제 왔어…. 삐졌어', '……(모른척)']); pet.angryT = 3.5; }
     else if (AWAY_HRS >= 6) { l = nickOn() && Math.random() < 0.6 ? callNick() + '!! 왜 이제 와아 보고싶었자나 🥹' : pickOne(['왜 이제 와아아 보고싶었자나 🥹', '왔다아아아!! 기다렸어', '헉 왔어?? 반가워어~~']); pet.happyT = 2.5; setTimeout(() => hearts(pet.x, floorY - R() * 2, 4), 300); }
-    else l = needLine() || pickOne(ENV_LINES[dayPart()] || ['왔어어어~~ 오늘도 놀자아']);
+    else l = needLine() || pickOne((ENV_LINES[dayPart()] || ['왔어어어~~ 오늘도 놀자아']).concat(TALK.greet));
     if (!S.sleeping && AWAY_HRS < 6 && !needLine()) setTimeout(() => { if (mode === 'idle' && !speech && WEATHER.kind !== 'clear') say(pickOne(ENV_LINES[WEATHER.kind]), 2.6); }, 4500);
     say(l, 3); if (l.indexOf('냉장고') >= 0) fridgeGlow = 6;
     startDay();
